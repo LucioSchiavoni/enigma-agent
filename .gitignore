@@ -1,0 +1,6 @@
+.env
+src/generated
+node_modules
+dist
+coverage
+*.tsbuildinfo

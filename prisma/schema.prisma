@@ -1,0 +1,310 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ChannelType {
+  TELEGRAM
+  WHATSAPP
+  INSTAGRAM
+  WEB
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  STAFF
+}
+
+enum ConversationStatus {
+  OPEN
+  HANDED_OFF
+  CLOSED
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum AppointmentSource {
+  AGENT
+  STAFF
+  EXTERNAL_SYNC
+}
+
+enum OverrideKind {
+  BLOCKED
+  EXTRA_OPEN
+}
+
+enum CalendarProvider {
+  GOOGLE
+  MICROSOFT
+}
+
+model Business {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  slug                String                 @unique
+  name                String
+  timezone            String                 @default("Europe/Madrid")
+  locale              String                 @default("es-ES")
+  agentConfig         Json                   @default("{}")
+  active              Boolean                @default(true)
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  locations           Location[]
+  channels            BusinessChannel[]
+  services            Service[]
+  professionals       Professional[]
+  faqEntries          FaqEntry[]
+  contacts            Contact[]
+  contactIdentities   ContactIdentity[]
+  conversations       Conversation[]
+  messages            Message[]
+  appointments        Appointment[]
+  availabilityRules   AvailabilityRule[]
+  availabilityOverrides AvailabilityOverride[]
+  calendarConnections CalendarConnection[]
+}
+
+model Location {
+  id                String             @id @default(uuid()) @db.Uuid
+  businessId        String             @db.Uuid
+  name              String
+  address           String?
+  active            Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  business          Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  channels          BusinessChannel[]
+  availabilityRules AvailabilityRule[]
+  appointments      Appointment[]
+
+  @@index([businessId])
+}
+
+model BusinessChannel {
+  id                   String         @id @default(uuid()) @db.Uuid
+  businessId           String         @db.Uuid
+  locationId           String?        @db.Uuid
+  type                 ChannelType
+  externalId           String
+  label                String?
+  credentialsEncrypted String?
+  active               Boolean        @default(true)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  business             Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  location             Location?      @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  conversations        Conversation[]
+
+  @@unique([type, externalId])
+  @@index([businessId])
+}
+
+model Service {
+  id              String         @id @default(uuid()) @db.Uuid
+  businessId      String         @db.Uuid
+  name            String
+  description     String?
+  durationMinutes Int
+  bufferMinutes   Int            @default(0)
+  priceCents      Int?
+  currency        String         @default("EUR")
+  active          Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  business        Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  professionals   Professional[]
+  appointments    Appointment[]
+
+  @@index([businessId])
+}
+
+model Professional {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  businessId            String                 @db.Uuid
+  name                  String
+  active                Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  business              Business               @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  services              Service[]
+  availabilityRules     AvailabilityRule[]
+  availabilityOverrides AvailabilityOverride[]
+  calendarConnections   CalendarConnection[]
+  appointments          Appointment[]
+
+  @@index([businessId])
+}
+
+model AvailabilityRule {
+  id             String       @id @default(uuid()) @db.Uuid
+  businessId     String       @db.Uuid
+  professionalId String       @db.Uuid
+  locationId     String?      @db.Uuid
+  dayOfWeek      Int
+  startMinute    Int
+  endMinute      Int
+  validFrom      DateTime?    @db.Date
+  validUntil     DateTime?    @db.Date
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  business       Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  location       Location?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, professionalId, dayOfWeek])
+}
+
+model AvailabilityOverride {
+  id             String       @id @default(uuid()) @db.Uuid
+  businessId     String       @db.Uuid
+  professionalId String       @db.Uuid
+  kind           OverrideKind
+  startsAt       DateTime
+  endsAt         DateTime
+  reason         String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  business       Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  professional   Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, professionalId, startsAt])
+}
+
+model CalendarConnection {
+  id                   String           @id @default(uuid()) @db.Uuid
+  businessId           String           @db.Uuid
+  professionalId       String           @db.Uuid
+  provider             CalendarProvider
+  externalCalendarId   String
+  credentialsEncrypted String
+  readBusy             Boolean          @default(true)
+  writeEvents          Boolean          @default(true)
+  active               Boolean          @default(true)
+  lastSyncedAt         DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  business             Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  professional         Professional     @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  appointments         Appointment[]
+
+  @@unique([professionalId, provider, externalCalendarId])
+  @@index([businessId])
+}
+
+model FaqEntry {
+  id         String   @id @default(uuid()) @db.Uuid
+  businessId String   @db.Uuid
+  question   String
+  answer     String
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
+model Contact {
+  id                 String            @id @default(uuid()) @db.Uuid
+  businessId         String            @db.Uuid
+  displayName        String?
+  phone              String?
+  email              String?
+  marketingConsent   Boolean           @default(false)
+  marketingConsentAt DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  business           Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  identities         ContactIdentity[]
+  conversations      Conversation[]
+  appointments       Appointment[]
+
+  @@index([businessId, phone])
+}
+
+model ContactIdentity {
+  id             String      @id @default(uuid()) @db.Uuid
+  businessId     String      @db.Uuid
+  contactId      String      @db.Uuid
+  channel        ChannelType
+  externalUserId String
+  createdAt      DateTime    @default(now())
+  business       Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contact        Contact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, channel, externalUserId])
+  @@index([contactId])
+}
+
+model Conversation {
+  id                String             @id @default(uuid()) @db.Uuid
+  businessId        String             @db.Uuid
+  contactId         String             @db.Uuid
+  businessChannelId String             @db.Uuid
+  status            ConversationStatus @default(OPEN)
+  lastMessageAt     DateTime           @default(now())
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  business          Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contact           Contact            @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  businessChannel   BusinessChannel    @relation(fields: [businessChannelId], references: [id], onDelete: Restrict)
+  messages          Message[]
+
+  @@index([businessId, contactId])
+  @@index([businessId, lastMessageAt])
+}
+
+model Message {
+  id                String       @id @default(uuid()) @db.Uuid
+  businessId        String       @db.Uuid
+  conversationId    String       @db.Uuid
+  role              MessageRole
+  content           String
+  externalMessageId String?
+  createdAt         DateTime     @default(now())
+  business          Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, externalMessageId])
+  @@index([businessId, conversationId, createdAt])
+}
+
+model Appointment {
+  id                   String              @id @default(uuid()) @db.Uuid
+  businessId           String              @db.Uuid
+  contactId            String              @db.Uuid
+  serviceId            String              @db.Uuid
+  professionalId       String              @db.Uuid
+  locationId           String?             @db.Uuid
+  startsAt             DateTime
+  endsAt               DateTime
+  status               AppointmentStatus   @default(PENDING)
+  source               AppointmentSource   @default(AGENT)
+  calendarConnectionId String?             @db.Uuid
+  externalEventId      String?
+  notes                String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  business             Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contact              Contact             @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  service              Service             @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  professional         Professional        @relation(fields: [professionalId], references: [id], onDelete: Restrict)
+  location             Location?           @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  calendarConnection   CalendarConnection? @relation(fields: [calendarConnectionId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, startsAt])
+  @@index([businessId, status, startsAt])
+  @@index([professionalId, startsAt])
+}
