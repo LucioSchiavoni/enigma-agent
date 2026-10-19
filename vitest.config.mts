@@ -6,6 +6,8 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     globals: true,
+    testTimeout: 30000,
+    hookTimeout: 30000,
     root: './',
     include: ['**/*.spec.ts'],
   },

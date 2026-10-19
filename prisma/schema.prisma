@@ -66,6 +66,7 @@ model Business {
   services            Service[]
   professionals       Professional[]
   faqEntries          FaqEntry[]
+  knowledgeSections KnowledgeSection[]
   contacts            Contact[]
   contactIdentities   ContactIdentity[]
   conversations       Conversation[]
@@ -74,6 +75,21 @@ model Business {
   availabilityRules   AvailabilityRule[]
   availabilityOverrides AvailabilityOverride[]
   calendarConnections CalendarConnection[]
+  agentUsages         AgentUsage[]
+}
+
+model AgentUsage {
+  id           String   @id @default(uuid()) @db.Uuid
+  businessId   String   @db.Uuid
+  day          DateTime @db.Date
+  modelCalls   Int      @default(0)
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, day])
 }
 
 model Location {
@@ -307,4 +323,18 @@ model Appointment {
   @@index([businessId, startsAt])
   @@index([businessId, status, startsAt])
   @@index([professionalId, startsAt])
+}
+
+model KnowledgeSection {
+  id         String   @id @default(uuid()) @db.Uuid
+  businessId String   @db.Uuid
+  title      String
+  content    String
+  sortOrder  Int      @default(0)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
 }

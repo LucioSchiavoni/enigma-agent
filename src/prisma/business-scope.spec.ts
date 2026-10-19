@@ -73,9 +73,8 @@ describe('business scope isolation', () => {
 
   it('forces its own businessId on create even if another one is supplied', async () => {
     const scopeA = createBusinessScope(client, businessAId);
-    const created = await scopeA.contact.create({
-      data: { displayName: 'Intruso', businessId: businessBId },
-    });
+    const forged = { displayName: 'Intruso', businessId: businessBId };
+    const created = await scopeA.contact.create({ data: forged });
     expect(created.businessId).toBe(businessAId);
     const fromB = await createBusinessScope(client, businessBId).contact.findUnique({
       where: { id: created.id },
